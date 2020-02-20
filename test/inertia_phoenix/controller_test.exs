@@ -87,8 +87,20 @@ defmodule InertiaPhoenix.ControllerTest do
       |> fetch_flash
       |> InertiaPhoenix.Plug.call([])
 
-    # |> InertiaPhoenix.Controller.render_inertia("Home", props: %{hello: "world"})
+    assert html = html_response(conn, 409)
+  end
 
+  test "render_inertia/3 with x-inertia-version mismatch and flash", %{conn: conn} do
+    conn =
+      conn
+      |> Conn.put_req_header("x-inertia", "true")
+      |> Conn.put_req_header("x-inertia-version", "123")
+      |> fetch_session
+      |> fetch_flash
+      |> put_flash(:info, "Info flash")
+      |> InertiaPhoenix.Plug.call([])
+
+    assert get_flash(conn) == %{"info" => "Info flash"}
     assert html = html_response(conn, 409)
   end
 
@@ -199,6 +211,30 @@ defmodule InertiaPhoenix.ControllerTest do
     page_map = %{
       "component" => "Home",
       "props" => %{"hello" => "world", "foo" => "bar", "user" => %{"name" => "José"}},
+      "url" => "/",
+      "version" => "1"
+    }
+
+    assert json = json_response(conn, 200)
+    assert json == page_map
+  end
+
+  test "render_inertia/3 with flash", %{conn: conn} do
+    conn =
+      conn
+      |> Conn.put_req_header("x-inertia", "true")
+      |> Conn.put_req_header("x-inertia-version", "1")
+      |> fetch_session
+      |> fetch_flash
+      |> put_flash(:info, "Info flash")
+      |> InertiaPhoenix.Plug.call([])
+      |> InertiaPhoenix.Controller.render_inertia("Home",
+        props: %{hello: "world"}
+      )
+
+    page_map = %{
+      "component" => "Home",
+      "props" => %{"flash" =>  %{"info" => "Info flash"}, "hello" => "world"},
       "url" => "/",
       "version" => "1"
     }

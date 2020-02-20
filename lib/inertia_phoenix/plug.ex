@@ -16,6 +16,7 @@ defmodule InertiaPhoenix.Plug do
         conn
         |> check_redirect
         |> check_assets_version
+        |> load_reflashed
         |> assign(:inertia_request, true)
 
       _ ->
@@ -23,9 +24,14 @@ defmodule InertiaPhoenix.Plug do
     end
   end
 
+  defp load_reflashed(conn) do
+    inertia_flash = get_session(conn, "inertia_flash")
+    put_session(conn, "phoenix_flash", inertia_flash)
+  end
+
   defp check_assets_version(conn) do
     if conn.method == "GET" && get_req_header(conn, "x-inertia") == ["true"] &&
-         get_req_header(conn, "x-inertia-version") != [assets_version()] do
+         get_req_header(conn, "x-inertia-version") == [assets_version()] do
       force_refresh(conn)
     else
       conn
@@ -34,11 +40,20 @@ defmodule InertiaPhoenix.Plug do
 
   defp force_refresh(conn) do
     conn
+    |> save_flash_to_session(get_session(conn, "phoenix_flash"))
     |> put_resp_header("x-inertia", "true")
     |> put_resp_header("x-inertia-location", request_url(conn))
     |> put_resp_content_type("text/html")
     |> send_resp(:conflict, "")
     |> halt()
+  end
+
+  defp save_flash_to_session(conn, flash) when is_map(flash) do
+    put_session(conn, "inertia_flash", flash)
+  end
+
+  defp save_flash_to_session(conn, _flash) do
+    conn
   end
 
   def check_redirect(conn) do
